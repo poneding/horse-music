@@ -8,6 +8,7 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "busboy": "^1.6.0",
     "music-metadata": "^12.2.3"
   }
 }

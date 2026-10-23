@@ -68,25 +68,25 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 128Mi
+              memory: 256Mi
             limits:
               cpu: "1"
               memory: 1Gi
           startupProbe:
             httpGet:
-              path: /api/state
+              path: /healthz
               port: http
             periodSeconds: 3
             failureThreshold: 30
           readinessProbe:
             httpGet:
-              path: /api/state
+              path: /healthz
               port: http
             periodSeconds: 10
             timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: /api/state
+              path: /healthz
               port: http
             periodSeconds: 20
             timeoutSeconds: 3
