@@ -1,0 +1,12 @@
+import { icon } from '../../core/icons.js';
+import { IMG_LAZY, state } from '../../core/state.js';
+import { coverFor, escapeHtml } from '../../core/util.js';
+import { admin } from '../state.js';
+
+export function renderTracks() {
+  const query = (admin.trackQuery || '').trim().toLowerCase();
+  const filtered = query ? state.tracks.filter(track => (state.searchHaystack.get(track.id) || '').includes(query)) : state.tracks;
+  const visible = filtered.slice(0, admin.trackLimit);
+  const remaining = filtered.length - visible.length;
+  return `<div class="admin-page-heading"><div><span class="eyebrow">TRACK LIBRARY</span><h1>歌曲管理</h1><p>你的音乐曲库中共有 ${state.tracks.length} 首歌曲。</p></div><button class="button button-dark" data-admin-action="upload">${icon('upload', 16)} 上传音乐</button></div><section class="admin-section-card full-table"><div class="table-toolbar"><div class="table-search">${icon('search', 16)}<input id="admin-track-search" value="${escapeHtml(admin.trackQuery || '')}" placeholder="搜索歌曲或艺人" /></div><span>${filtered.length} 首歌曲</span></div><div class="admin-track-table"><div class="admin-table-head"><span>#</span><span>歌曲</span><span>专辑</span><span>风格</span><span>操作</span></div>${visible.map((track, index) => `<div class="admin-table-row"><span>${String(index + 1).padStart(2, '0')}</span><span class="table-song"><img ${IMG_LAZY} src="${escapeHtml(coverFor(track))}" alt=""/><span><strong>${escapeHtml(track.title)}</strong><small>${escapeHtml(track.artist)}</small></span></span><span>${escapeHtml(track.album || '单曲')}</span><span><i class="genre-dot"></i>${escapeHtml(track.genre || '未分类')}</span><span class="table-actions"><button class="icon-button" data-edit-track="${escapeHtml(track.id)}" title="编辑歌曲" aria-label="编辑歌曲">${icon('edit', 15)}</button><button class="icon-button ${track.hasLyrics ? 'lyrics-ready' : ''}" data-track-lyrics="${escapeHtml(track.id)}" title="${track.hasLyrics ? '歌词（已匹配）' : '匹配歌词'}" aria-label="歌词">${icon('lyrics', 15)}</button><button class="icon-button delete-button" data-delete-track="${escapeHtml(track.id)}" title="删除歌曲" aria-label="删除歌曲">${icon('trash', 15)}</button></span></div>`).join('') || `<div class="admin-empty">${query ? '没有找到匹配的歌曲' : '曲库还没有歌曲，上传第一首吧。'}</div>`}</div>${remaining > 0 ? `<div class="table-more"><button class="button button-outline" data-admin-action="load-more-tracks">加载更多（剩余 ${remaining} 首）</button></div>` : ''}</section>`;
+}

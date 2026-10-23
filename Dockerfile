@@ -11,7 +11,9 @@ RUN npm ci --omit=dev \
     && mkdir -p /app/data/media \
     && chown -R node:node /app \
     && chmod 700 /app/data
-COPY --chown=node:node server.js app.js index.html styles.css bojack-mark.jpg favicon.png ./
+COPY --chown=node:node server.js index.html styles.css bojack-mark.jpg favicon.png ./
+COPY --chown=node:node server ./server
+COPY --chown=node:node src ./src
 COPY --chown=node:node fonts ./fonts/
 
 USER node

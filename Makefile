@@ -38,7 +38,13 @@ install: ## 安装生产依赖（npm ci）
 check: ## 检查 Node.js 语法与 package.json
 	@node -e "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8'))"
 	@node --check server.js
-	@node --check app.js
+	@find server -name '*.js' -exec node --check {} +
+	@set -e; for file in $$(find src -name '*.js'); do \
+		tmp=$$(mktemp /tmp/horse-check-XXXXXX); \
+		cp "$$file" "$$tmp.mjs"; \
+		node --check "$$tmp.mjs"; \
+		rm -f "$$tmp" "$$tmp.mjs"; \
+	done
 	@echo "检查通过"
 
 run: ## 本地运行播放器（默认 4173 端口）
