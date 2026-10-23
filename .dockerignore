@@ -1,0 +1,10 @@
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
+data
+node_modules
+outputs
+work
+*.log
