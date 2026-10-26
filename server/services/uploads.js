@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const { pipeline } = require('node:stream/promises');
 const Busboy = require('busboy');
 const {
-  DATA_DIR,
+  UPLOAD_TMP_DIR,
   MAX_UPLOAD,
   MAX_COVER,
   MAX_LYRICS,
@@ -55,7 +55,9 @@ function describeAudioTags(tags) {
 }
 
 async function readUpload(req) {
-  const tempDir = await fsp.mkdtemp(path.join(DATA_DIR, '.upload-'));
+  // 上传先落在本地临时盘，数据盘只承担最终入库的文件。
+  await fsp.mkdir(UPLOAD_TMP_DIR, { recursive: true }).catch(() => {});
+  const tempDir = await fsp.mkdtemp(path.join(UPLOAD_TMP_DIR, 'horse-upload-'));
   const fields = {};
   const files = {};
   const writes = [];

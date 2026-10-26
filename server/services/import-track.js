@@ -10,7 +10,7 @@ const {
   ALLOWED_AUDIO,
   AUDIO_FORMATS_HINT
 } = require('../config');
-const { extension, audioMimeType } = require('../lib/files');
+const { moveFile, extension, audioMimeType } = require('../lib/files');
 const { getDb, touchDb, writeDb } = require('../store/library');
 const { cleanTag, normalizeKey, splitArtistText, uniqueArtistNames, namesFromTag, ensureArtist, findAlbum, nextAlbumOrder } = require('./catalog');
 const { embeddedCover, removeTrackCover } = require('./artwork');
@@ -94,7 +94,7 @@ async function commitUpload(req) {
     const id = crypto.randomUUID();
     const audioName = `${id}${audioExt}`;
     try {
-      await fsp.rename(audio.path, path.join(MEDIA_DIR, audioName));
+      await moveFile(audio.path, path.join(MEDIA_DIR, audioName));
     } catch (error) {
       // 暂存文件可能被其他批量预览挤掉或已过期，让客户端改走直接上传。
       if (staged && error.code === 'ENOENT') throw httpError('文件已过期，请重新上传', 410);
@@ -106,7 +106,7 @@ async function commitUpload(req) {
     if (files.lyrics?.size) {
       const lyricsName = `${id}${extension(files.lyrics.filename, '.lrc')}`;
       lyrics = await fsp.readFile(files.lyrics.path, 'utf8');
-      await fsp.rename(files.lyrics.path, path.join(MEDIA_DIR, lyricsName));
+      await moveFile(files.lyrics.path, path.join(MEDIA_DIR, lyricsName));
       lyricsUrl = `/media/${lyricsName}`;
     }
 
@@ -114,12 +114,12 @@ async function commitUpload(req) {
     const hasManualCover = Boolean(files.cover?.size);
     if (hasManualCover) {
       const coverName = `${id}${extension(files.cover.filename, '.jpg')}`;
-      await fsp.rename(files.cover.path, path.join(MEDIA_DIR, coverName));
+      await moveFile(files.cover.path, path.join(MEDIA_DIR, coverName));
       coverUrl = `/media/${coverName}`;
     } else if (!coverUrl) {
       if (staged?.cover) {
         const coverName = `${id}-cover${path.extname(staged.cover)}`;
-        await fsp.rename(path.join(staged.dir, staged.cover), path.join(MEDIA_DIR, coverName));
+        await moveFile(path.join(staged.dir, staged.cover), path.join(MEDIA_DIR, coverName));
         coverUrl = `/media/${coverName}`;
       } else {
         const picture = embeddedCover(tags);
@@ -248,7 +248,7 @@ async function editTrack(req, id) {
     if (files.cover?.size) {
       const coverName = `${id}-cover${extension(files.cover.filename, '.jpg')}`;
       const nextCoverUrl = `/media/${coverName}`;
-      await fsp.rename(files.cover.path, path.join(MEDIA_DIR, coverName));
+      await moveFile(files.cover.path, path.join(MEDIA_DIR, coverName));
       if (track.coverUrl !== nextCoverUrl) await removeTrackCover(track, track.coverUrl, db);
       coverUrl = nextCoverUrl;
     } else if (cleanTag(fields.coverUrl)) {

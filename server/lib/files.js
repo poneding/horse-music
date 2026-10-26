@@ -15,6 +15,18 @@ async function atomicWrite(file, data, mode) {
   }
 }
 
+/** 临时盘和数据盘常在两个文件系统上，rename 会抛 EXDEV，此时退化成复制再删除。 */
+async function moveFile(from, to) {
+  try {
+    await fsp.rename(from, to);
+    return;
+  } catch (error) {
+    if (error.code !== 'EXDEV') throw error;
+  }
+  await fsp.copyFile(from, to);
+  await fsp.unlink(from).catch(() => {});
+}
+
 function extension(filename, fallback) {
   const ext = path.extname(filename || '').toLowerCase();
   return /^\.[a-z0-9]{1,8}$/.test(ext) ? ext : fallback;
@@ -56,4 +68,4 @@ function safeMediaPath(urlPath) {
   return path.join(MEDIA_DIR, name);
 }
 
-module.exports = { atomicWrite, extension, audioMimeType, mediaMimeType, imageExtension, safeMediaPath };
+module.exports = { atomicWrite, moveFile, extension, audioMimeType, mediaMimeType, imageExtension, safeMediaPath };

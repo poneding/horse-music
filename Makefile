@@ -15,6 +15,7 @@ LOCAL_PLATFORM ?= linux/$(shell uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64
 PORT           ?= 4173
 LOCAL_PORT     ?= 8080
 DATA_DIR       ?= ./data
+UPLOAD_TMP_DIR ?=
 ADMIN_USER     ?= admin
 ADMIN_PASSWORD ?=
 TRUST_PROXY    ?=
@@ -53,7 +54,7 @@ run: ## 本地运行播放器（默认 4173 端口）
 	@test -d node_modules || npm ci
 	@echo "本地地址：http://localhost:$(PORT)"
 	@echo "管理端：  http://localhost:$(PORT)/admin"
-	PORT=$(PORT) DATA_DIR=$(DATA_DIR) ADMIN_USER=$(ADMIN_USER) ADMIN_PASSWORD='$(or $(ADMIN_PASSWORD),admin123)' TRUST_PROXY=$(TRUST_PROXY) npm start
+	PORT=$(PORT) DATA_DIR=$(DATA_DIR) UPLOAD_TMP_DIR=$(UPLOAD_TMP_DIR) ADMIN_USER=$(ADMIN_USER) ADMIN_PASSWORD='$(or $(ADMIN_PASSWORD),admin123)' TRUST_PROXY=$(TRUST_PROXY) npm start
 
 dev: run ## make run 的别名
 

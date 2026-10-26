@@ -1,4 +1,5 @@
-import { api } from '../../core/api.js';
+import { api, uploadForm } from '../../core/api.js';
+import { readAudioTags } from '../../core/audio-tags.js';
 import { icon } from '../../core/icons.js';
 import { currentRoute, navigate } from '../../core/router.js';
 import { renderApp } from '../../core/render-bus.js';
@@ -56,6 +57,30 @@ export function openUploadDialog() {
     progressText.textContent = text || '';
   };
 
+  const formatSpeed = bytesPerSecond => {
+    if (!Number.isFinite(bytesPerSecond) || bytesPerSecond < 1) return '';
+    if (bytesPerSecond >= 1024 * 1024) return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
+    return `${Math.max(1, Math.round(bytesPerSecond / 1024))} KB/s`;
+  };
+
+  /**
+   * 上传进度回报：算出百分比与平均速率，直接写状态文字。
+   * 不走 updateItem 是为了避免每个 progress 事件都重渲染整个列表。
+   */
+  const createTransferReporter = (item, verb, onTotalProgress) => {
+    const startedAt = performance.now();
+    return (loaded, total) => {
+      const seconds = Math.max(0.4, (performance.now() - startedAt) / 1000);
+      const percent = total ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+      const speed = formatSpeed(loaded / seconds);
+      item.progress = percent;
+      item.transferText = `${verb} ${percent}%${speed ? ` · ${speed}` : ''}`;
+      item.refs.status.textContent = item.transferText;
+      item.refs.status.title = item.transferText;
+      if (onTotalProgress) onTotalProgress(percent, speed);
+    };
+  };
+
   const pendingCount = () => items.filter(item => !['done', 'invalid'].includes(item.status)).length;
 
   const syncItemDisplay = item => {
@@ -70,12 +95,15 @@ export function openUploadDialog() {
 
   const statusLabel = item => {
     if (item.status === 'queued') return '等待读取标签…';
-    if (item.status === 'inspecting') return '正在读取文件标签和封面…';
+    if (item.status === 'inspecting') {
+      if (item.transferText) return item.transferText;
+      return item.remoteInspect ? '该格式需上传到服务器读取标签…' : '正在读取文件标签和封面…';
+    }
     if (item.status === 'ready') {
       if (item.inspectError) return `未能读取标签：${item.inspectError}；可直接编辑后上传。`;
       return item.found.length ? `已识别${item.found.join('、')}；未改动的字段按标签入库。` : '没有内嵌标签，将使用文件名作为歌曲名。';
     }
-    if (item.status === 'uploading') return '正在上传并保存…';
+    if (item.status === 'uploading') return item.transferText || '正在上传并保存…';
     if (item.status === 'done') {
       const created = item.result?.created;
       if (created?.album || created?.artists?.length) return '已添加到曲库，并自动新建了专辑或歌手档案。';
@@ -171,6 +199,55 @@ export function openUploadDialog() {
     item.fields.genre = option.value;
   };
 
+  // 内嵌封面直接用本地 object URL 显示，不必再为了一张缩略图往返服务器。
+  const setCoverObjectUrl = (item, cover) => {
+    if (item.coverObjectUrl) URL.revokeObjectURL(item.coverObjectUrl);
+    item.coverObjectUrl = cover ? URL.createObjectURL(new Blob([cover.data], { type: cover.mime })) : '';
+  };
+
+  const clearCoverObjectUrl = item => {
+    if (!item.coverObjectUrl) return;
+    URL.revokeObjectURL(item.coverObjectUrl);
+    item.coverObjectUrl = '';
+  };
+
+  // 已手动改过的字段保持用户输入，其余字段按标签预填。
+  const applyRecognizedTags = (item, tags, hasCover) => {
+    item.recognized = {
+      title: String(tags.title || '').trim(),
+      artist: String(tags.artist || '').trim(),
+      album: String(tags.album || '').trim(),
+      genre: String(tags.genre || '').trim()
+    };
+    const found = [];
+    for (const [name, label] of [['title', '歌曲名'], ['artist', '演唱者'], ['album', '专辑']]) {
+      const value = item.recognized[name];
+      if (!item.touched[name]) {
+        item.fields[name] = value;
+        item.refs.fields[name].value = value;
+      }
+      if (value) found.push(label);
+    }
+    if (item.recognized.genre && !item.touched.genre) setItemGenre(item, item.recognized.genre);
+    if (item.recognized.genre) found.push('风格');
+    if (hasCover) found.push('封面');
+    item.found = found;
+  };
+
+  // 浏览器解析不了的格式才回退到服务端，这条路径仍需要把整个文件传上去。
+  const inspectOnServer = async (item, seq, onProgress) => {
+    const data = new FormData();
+    data.append('audio', item.file);
+    const result = await uploadForm('/api/admin/upload/inspect', data, { onProgress });
+    if (item.removed || closed || seq !== item.inspectSeq) {
+      api(`/api/admin/upload/${encodeURIComponent(result.token)}`, { method: 'DELETE' }).catch(() => {});
+      return;
+    }
+    item.token = result.token;
+    item.coverUrl = result.coverUrl || '';
+    applyRecognizedTags(item, result.fields || {}, Boolean(item.coverUrl));
+  };
+
   const renderUploadItem = item => {
     const el = document.createElement('article');
     el.classList.add('upload-item');
@@ -220,7 +297,7 @@ export function openUploadDialog() {
     });
     refs.fields.cover.addEventListener('change', () => {
       item.coverFile = refs.fields.cover.files?.[0] || null;
-      if (item.coverObjectUrl) URL.revokeObjectURL(item.coverObjectUrl);
+      clearCoverObjectUrl(item);
       item.coverObjectUrl = item.coverFile ? URL.createObjectURL(item.coverFile) : '';
       showItemCover(item);
     });
@@ -249,6 +326,7 @@ export function openUploadDialog() {
       status: error ? 'invalid' : 'queued',
       error,
       inspectError: '',
+      remoteInspect: false,
       token: '',
       coverUrl: '',
       coverObjectUrl: '',
@@ -263,6 +341,8 @@ export function openUploadDialog() {
       lyricsText: '',
       inspectSeq: 0,
       inspectPromise: null,
+      progress: 0,
+      transferText: '',
       removed: false,
       refs: null
     };
@@ -281,7 +361,7 @@ export function openUploadDialog() {
       item.token = '';
       api(`/api/admin/upload/${encodeURIComponent(token)}`, { method: 'DELETE' }).catch(() => {});
     }
-    if (item.coverObjectUrl) URL.revokeObjectURL(item.coverObjectUrl);
+    clearCoverObjectUrl(item);
     item.refs.el.remove();
     const index = items.indexOf(item);
     if (index >= 0) items.splice(index, 1);
@@ -300,50 +380,45 @@ export function openUploadDialog() {
     const seq = ++item.inspectSeq;
     item.status = 'inspecting';
     item.inspectError = '';
+    item.remoteInspect = false;
+    item.transferText = '';
+    item.progress = 0;
     updateItem(item);
     updateOverallUi();
     const promise = (async () => {
+      let local = null;
       try {
-        const data = new FormData();
-        data.append('audio', item.file);
-        const result = await api('/api/admin/upload/inspect', { method: 'POST', body: data });
-        if (item.removed || closed || seq !== item.inspectSeq) {
-          api(`/api/admin/upload/${encodeURIComponent(result.token)}`, { method: 'DELETE' }).catch(() => {});
-          return;
-        }
-        item.token = result.token;
-        item.coverUrl = result.coverUrl || '';
-        const tags = result.fields || {};
-        item.recognized = {
-          title: String(tags.title || '').trim(),
-          artist: String(tags.artist || '').trim(),
-          album: String(tags.album || '').trim(),
-          genre: String(tags.genre || '').trim()
-        };
-        const found = [];
-        for (const [name, label] of [['title', '歌曲名'], ['artist', '演唱者'], ['album', '专辑']]) {
-          const value = item.recognized[name];
-          if (!item.touched[name]) {
-            item.fields[name] = value;
-            item.refs.fields[name].value = value;
-          }
-          if (value) found.push(label);
-        }
-        if (item.recognized.genre && !item.touched.genre) setItemGenre(item, item.recognized.genre);
-        if (item.recognized.genre) found.push('风格');
-        if (item.coverUrl) found.push('封面');
-        item.found = found;
-        item.status = 'ready';
-      } catch (error) {
+        // 标签和封面直接在本机读：不占用上行带宽，几十毫秒就有结果。
+        local = await readAudioTags(item.file);
         if (item.removed || closed || seq !== item.inspectSeq) return;
-        item.recognized = { title: '', artist: '', album: '', genre: '' };
-        item.inspectError = error.message;
-        item.status = 'ready';
-      } finally {
-        if (!item.removed && !closed) {
-          updateItem(item);
-          updateOverallUi();
+        applyRecognizedTags(item, local, Boolean(local.cover));
+      } catch {
+        // 浏览器不认识的容器（如 WebM）回退到服务端解析，代价是要把整首歌传上去。
+        local = null;
+        item.remoteInspect = true;
+        updateItem(item);
+        // 这一首传完后它就算「已读完」，所以整体进度按已读首数 + 当前百分比算。
+        const inspected = items.filter(candidate => !['queued', 'inspecting', 'invalid'].includes(candidate.status)).length;
+        const countable = Math.max(1, items.filter(candidate => candidate.status !== 'invalid').length);
+        const onProgress = createTransferReporter(item, '正在上传以读取标签', (percent, speed) => {
+          setProgress(((inspected + percent / 100) / countable) * 100, `正在上传以读取标签 ${percent}%${speed ? ` · ${speed}` : ''}`);
+        });
+        try {
+          await inspectOnServer(item, seq, onProgress);
+          if (item.removed || closed || seq !== item.inspectSeq) return;
+        } catch (error) {
+          if (item.removed || closed || seq !== item.inspectSeq) return;
+          item.recognized = { title: '', artist: '', album: '', genre: '' };
+          item.inspectError = error.message;
         }
+        item.transferText = '';
+      }
+      if (item.removed || closed || seq !== item.inspectSeq) return;
+      if (local?.cover) setCoverObjectUrl(item, local.cover);
+      item.status = 'ready';
+      if (!item.removed && !closed) {
+        updateItem(item);
+        updateOverallUi();
       }
     })();
     item.inspectPromise = promise;
@@ -392,7 +467,7 @@ export function openUploadDialog() {
     void pumpInspections();
   };
 
-  const commitUploadItem = async (item, forceAudio = false) => {
+  const commitUploadItem = async (item, forceAudio = false, onProgress) => {
     const data = new FormData();
     if (forceAudio || !item.token) data.set('audio', item.file);
     else data.set('token', item.token);
@@ -409,7 +484,7 @@ export function openUploadDialog() {
       const lyricsText = (item.lyricsText || '').trim();
       if (lyricsText) data.set('lyrics', new File([lyricsText], 'lyrics.lrc', { type: 'text/plain' }));
     }
-    return api('/api/admin/upload', { method: 'POST', body: data });
+    return uploadForm('/api/admin/upload', data, { onProgress });
   };
 
   const uploadItems = async () => {
@@ -421,6 +496,9 @@ export function openUploadDialog() {
     }
     uploading = true;
     updateOverallUi();
+    // 总进度按字节算，单首大文件上传时进度条才会真的走动。
+    const totalBytes = targets.reduce((sum, item) => sum + Math.max(1, item.file.size), 0);
+    let sentBytes = 0;
     let success = 0;
     let failure = 0;
     for (let index = 0; index < targets.length; index += 1) {
@@ -428,22 +506,31 @@ export function openUploadDialog() {
       if (closed) break;
       item.status = 'uploading';
       item.error = '';
+      item.progress = 0;
+      item.transferText = '';
       updateItem(item);
-      setProgress((index / targets.length) * 100, `正在上传 ${index + 1}/${targets.length}：${item.fields.title.trim() || uploadBaseName(item.file.name)}`);
+      const label = item.fields.title.trim() || uploadBaseName(item.file.name);
+      const onProgress = createTransferReporter(item, '正在上传', (percent, speed) => {
+        const sent = sentBytes + item.file.size * (percent / 100);
+        setProgress((sent / totalBytes) * 100, `正在上传 ${index + 1}/${targets.length}：${label}${speed ? ` · ${speed}` : ''}`);
+      });
+      setProgress((sentBytes / totalBytes) * 100, `正在上传 ${index + 1}/${targets.length}：${label}`);
       try {
         let result;
         try {
-          result = await commitUploadItem(item);
+          result = await commitUploadItem(item, false, onProgress);
         } catch (error) {
           if (!item.token || !/过期|凭证/.test(error.message)) throw error;
           const staleToken = item.token;
           item.token = '';
           api(`/api/admin/upload/${encodeURIComponent(staleToken)}`, { method: 'DELETE' }).catch(() => {});
-          result = await commitUploadItem(item, true);
+          result = await commitUploadItem(item, true, onProgress);
         }
         item.token = '';
         item.result = result;
         item.status = 'done';
+        // 入库后以服务端封面为准，同时释放本地的图片内存。
+        clearCoverObjectUrl(item);
         success += 1;
       } catch (error) {
         if (!closed) {
@@ -452,9 +539,11 @@ export function openUploadDialog() {
           failure += 1;
         }
       }
+      sentBytes += item.file.size;
+      item.transferText = '';
       if (!closed) {
         updateItem(item);
-        setProgress(((index + 1) / targets.length) * 100, '');
+        setProgress((sentBytes / totalBytes) * 100, '');
       }
     }
     uploading = false;
@@ -519,7 +608,7 @@ export function openUploadDialog() {
         item.token = '';
         api(`/api/admin/upload/${encodeURIComponent(token)}`, { method: 'DELETE' }).catch(() => {});
       }
-      if (item.coverObjectUrl) URL.revokeObjectURL(item.coverObjectUrl);
+      clearCoverObjectUrl(item);
     }
     items.length = 0;
   });

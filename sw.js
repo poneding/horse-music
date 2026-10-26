@@ -1,6 +1,6 @@
 /* 一头诗人的离线外壳：缓存应用外壳与静态资源，音频和接口始终走网络。 */
 const CACHE_PREFIX = 'horse-music-';
-const CACHE_NAME = `${CACHE_PREFIX}shell-v3`;
+const CACHE_NAME = `${CACHE_PREFIX}shell-v4`;
 const SHELL_URLS = [
   '/',
   '/index.html',

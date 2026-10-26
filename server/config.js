@@ -1,4 +1,5 @@
 const path = require('node:path');
+const os = require('node:os');
 const crypto = require('node:crypto');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -11,6 +12,8 @@ const SHARES_FILE = path.join(DATA_DIR, 'shares.json');
 const FAVORITES_FILE = path.join(DATA_DIR, 'favorites.json');
 const SRC_DIR = path.join(ROOT, 'src');
 const PORT = Number(process.env.PORT || 4173);
+// 上传先落在本地临时盘（容器里是 emptyDir），避免 60 MB 的中间文件反复写数据盘。
+const UPLOAD_TMP_DIR = path.resolve(process.env.UPLOAD_TMP_DIR || os.tmpdir());
 
 const MAX_UPLOAD = 60 * 1024 * 1024;
 const STAGED_UPLOAD_TTL = 30 * 60 * 1000;
@@ -53,6 +56,7 @@ module.exports = {
   FAVORITES_FILE,
   SRC_DIR,
   PORT,
+  UPLOAD_TMP_DIR,
   MAX_UPLOAD,
   STAGED_UPLOAD_TTL,
   MAX_STAGED_UPLOADS,
