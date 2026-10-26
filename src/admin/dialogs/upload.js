@@ -12,6 +12,9 @@ import { dialogShell } from '../../components/dialog.js';
 const UPLOAD_AUDIO_EXTENSIONS = new Set(['mp3', 'm4a', 'aac', 'wav', 'ogg', 'flac', 'webm']);
 const UPLOAD_MAX_BYTES = 60 * 1024 * 1024;
 const UPLOAD_MAX_BATCH = 20;
+// 国内到日本这类高 RTT 链路单连接吃不满带宽，并发几路能明显提高总吞吐；
+// 上限取 3，留出 CPU（1 核时服务端解析和写盘会互相抢）与临时盘空间。
+const UPLOAD_CONCURRENCY = 3;
 const UPLOAD_GENRE_OPTIONS = [...new Set(['未分类', ...genres.slice(1), '独立摇滚', '古典', '其他'])];
 
 function uploadFileSize(bytes) {
@@ -498,23 +501,36 @@ export function openUploadDialog() {
     updateOverallUi();
     // 总进度按字节算，单首大文件上传时进度条才会真的走动。
     const totalBytes = targets.reduce((sum, item) => sum + Math.max(1, item.file.size), 0);
-    let sentBytes = 0;
+    const sentByItem = new Map(targets.map(item => [item.id, 0]));
+    const queue = [...targets];
+    const batchStartedAt = performance.now();
     let success = 0;
     let failure = 0;
-    for (let index = 0; index < targets.length; index += 1) {
-      const item = targets[index];
-      if (closed) break;
+
+    const reportBatchProgress = () => {
+      let sent = 0;
+      for (const value of sentByItem.values()) sent += value;
+      const inFlight = targets.filter(item => item.status === 'uploading').length;
+      const finished = success + failure;
+      const speed = formatSpeed(sent / Math.max(0.4, (performance.now() - batchStartedAt) / 1000));
+      // 并发时“第几首”不再是单调递增的，改成同时在传几首 + 已完成几首。
+      const text = inFlight > 0
+        ? `正在上传 ${inFlight} 首 · 已完成 ${finished}/${targets.length}${speed ? ` · ${speed}` : ''}`
+        : `已完成 ${finished}/${targets.length} 首`;
+      setProgress((sent / totalBytes) * 100, text);
+    };
+
+    const uploadOne = async item => {
       item.status = 'uploading';
       item.error = '';
       item.progress = 0;
       item.transferText = '';
       updateItem(item);
-      const label = item.fields.title.trim() || uploadBaseName(item.file.name);
-      const onProgress = createTransferReporter(item, '正在上传', (percent, speed) => {
-        const sent = sentBytes + item.file.size * (percent / 100);
-        setProgress((sent / totalBytes) * 100, `正在上传 ${index + 1}/${targets.length}：${label}${speed ? ` · ${speed}` : ''}`);
+      reportBatchProgress();
+      const onProgress = createTransferReporter(item, '正在上传', percent => {
+        sentByItem.set(item.id, item.file.size * (percent / 100));
+        reportBatchProgress();
       });
-      setProgress((sentBytes / totalBytes) * 100, `正在上传 ${index + 1}/${targets.length}：${label}`);
       try {
         let result;
         try {
@@ -539,13 +555,23 @@ export function openUploadDialog() {
           failure += 1;
         }
       }
-      sentBytes += item.file.size;
+      sentByItem.set(item.id, item.file.size);
       item.transferText = '';
       if (!closed) {
         updateItem(item);
-        setProgress((sentBytes / totalBytes) * 100, '');
+        reportBatchProgress();
       }
-    }
+    };
+
+    // 固定数量的 worker 从队列里按顺序取，最多 UPLOAD_CONCURRENCY 首同时在传。
+    const runWorker = async () => {
+      while (!closed) {
+        const item = queue.shift();
+        if (!item) return;
+        await uploadOne(item);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, targets.length) }, runWorker));
     uploading = false;
     anyUploaded = anyUploaded || success > 0;
     let refreshFailed = false;
