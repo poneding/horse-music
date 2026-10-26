@@ -1,12 +1,4 @@
 const storedTheme = localStorage.getItem('horse-music-theme');
-const storedFavorites = (() => {
-  try {
-    const value = JSON.parse(localStorage.getItem('luma-favorites') || '[]');
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
-})();
 
 export const TRACK_PAGE_SIZE = 100;
 export const ADMIN_PAGE_SIZE = 100;
@@ -21,8 +13,9 @@ export const state = {
   playlists: [],
   recentPlays: [],
   genre: '全部',
+  sort: 'recent',
   query: '',
-  favorites: new Set(storedFavorites),
+  favorites: new Set(),
   listLimit: TRACK_PAGE_SIZE,
   queue: [],
   queueIndex: -1,
@@ -30,10 +23,15 @@ export const state = {
   currentTime: 0,
   duration: 0,
   pendingRecord: null,
+  recordedForCurrent: false,
   shuffle: false,
   repeat: false,
   repeatOne: false,
   repeatMode: 0,
+  shufflePool: [],
+  shuffleHistory: [],
+  volume: 1,
+  muted: false,
   lyricsOpen: false,
   trackById: new Map(),
   artistIndex: new Map(),
@@ -50,9 +48,9 @@ export const state = {
 };
 
 export function currentTrack() {
-  return state.queue[state.queueIndex] || null;
+  return state.queue[state.queueIndex]?.track || null;
 }
 
 export function hasPlayerSession() {
-  return Boolean(currentTrack()) || state.queue.length > 0;
+  return state.queue.length > 0;
 }

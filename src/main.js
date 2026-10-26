@@ -5,6 +5,9 @@ import { ADMIN_PAGE_SIZE, state, TRACK_PAGE_SIZE } from './core/state.js';
 import { admin } from './admin/state.js';
 import { ensureAdminSession } from './admin/auth.js';
 import { refreshLibrary } from './data/library.js';
+import { initFavorites } from './data/favorites.js';
+import { restorePlaybackSession } from './features/player.js';
+import { initMediaSession } from './features/media-session.js';
 import { bindEvents } from './app/events.js';
 import { render } from './app/render.js';
 
@@ -26,6 +29,9 @@ async function bootstrap() {
   initTheme();
   try {
     await refreshLibrary();
+    await initFavorites();
+    restorePlaybackSession();
+    initMediaSession();
     if (isAdminRoute(currentRoute())) await ensureAdminSession();
     setRenderer(render);
     bindEvents();

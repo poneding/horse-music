@@ -6,6 +6,8 @@ const { serveMedia } = require('./lib/media');
 const { initLibrary, flushDb } = require('./store/library');
 const { initPlays, flushPlayStore } = require('./store/plays');
 const { initAuth } = require('./store/auth');
+const { initShares, flushShares } = require('./store/shares');
+const { initFavorites, flushFavorites } = require('./store/favorites');
 const { handleApi } = require('./routes/api');
 
 const server = http.createServer(async (req, res) => {
@@ -28,7 +30,7 @@ server.keepAliveTimeout = 65_000;
 server.headersTimeout = 66_000;
 
 async function shutdown() {
-  try { await Promise.allSettled([flushPlayStore(true), flushDb()]); } catch {}
+  try { await Promise.allSettled([flushPlayStore(true), flushDb(), flushFavorites(), flushShares()]); } catch {}
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
 }
@@ -40,6 +42,8 @@ async function start() {
   await initLibrary();
   await initPlays();
   await initAuth();
+  await initShares();
+  await initFavorites();
   server.listen(PORT, '0.0.0.0', () => console.log(`一头诗人 running at http://localhost:${PORT}`));
 }
 

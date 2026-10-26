@@ -9,6 +9,7 @@ const handlers = [
   require('./albums'),
   require('./artists'),
   require('./playlists'),
+  require('./storage'),
   require('./tracks')
 ];
 

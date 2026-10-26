@@ -25,6 +25,8 @@ async function initLibrary() {
   await fsp.mkdir(MEDIA_DIR, { recursive: true });
   for (const name of await fsp.readdir(DATA_DIR)) {
     if (name.startsWith('.upload-')) await fsp.rm(path.join(DATA_DIR, name), { recursive: true, force: true }).catch(() => {});
+    // 进程异常退出可能留下 atomicWrite 的临时文件，启动时清理。
+    else if (name.endsWith('.tmp')) await fsp.unlink(path.join(DATA_DIR, name)).catch(() => {});
   }
   const loaded = await loadLibrary();
   db = loaded.db;

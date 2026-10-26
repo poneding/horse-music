@@ -6,5 +6,9 @@ export const admin = {
   sessionPromise: null,
   username: '',
   trackQuery: '',
-  trackLimit: ADMIN_PAGE_SIZE
+  trackLimit: ADMIN_PAGE_SIZE,
+  trackSelection: new Set(),
+  trackBatchBusy: false,
+  bulkPlaylistId: '',
+  activeTab: ''
 };

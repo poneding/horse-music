@@ -10,26 +10,36 @@ import { renderTopbar } from '../components/topbar.js';
 import { renderAdmin } from '../admin/layout.js';
 import { renderHome } from '../views/home.js';
 import { renderDiscover } from '../views/discover.js';
+import { renderAlbums } from '../views/albums.js';
 import { renderLibrary } from '../views/library.js';
 import { renderFavorites } from '../views/favorites.js';
 import { renderRecent } from '../views/recent.js';
 import { renderCharts } from '../views/charts.js';
 import { renderCollection } from '../views/collection.js';
+import { renderShare } from '../views/share.js';
+import { shareEntry } from '../data/shares.js';
 
 const app = document.querySelector('#app');
 const PAGE_TITLES = {
   home: '一头诗人',
   discover: '发现音乐 · 一头诗人',
+  albums: '专辑与故事 · 一头诗人',
   library: '全部歌曲 · 一头诗人',
   search: '搜索结果 · 一头诗人',
   favorites: '我的收藏 · 一头诗人',
   recent: '最近播放 · 一头诗人',
-  charts: '播放排行 · 一头诗人'
+  charts: '播放排行 · 一头诗人',
+  share: '分享的播放列表 · 一头诗人'
 };
 
 function setDocumentTitle(route) {
   if (route.name.startsWith('admin-')) {
     document.title = `${adminLabel(route)} · 一头诗人`;
+    return;
+  }
+  if (route.name === 'share') {
+    const share = shareEntry(route.code)?.data;
+    document.title = `${share?.title || '分享的播放列表'} · 一头诗人`;
     return;
   }
   const collection = collectionFor(route);
@@ -39,10 +49,12 @@ function setDocumentTitle(route) {
 function renderRouteContent(route) {
   if (route.name === 'home') return renderHome();
   if (route.name === 'discover') return renderDiscover();
+  if (route.name === 'albums') return renderAlbums();
   if (route.name === 'library' || route.name === 'search') return renderLibrary(route);
   if (route.name === 'favorites') return renderFavorites();
   if (route.name === 'recent') return renderRecent();
   if (route.name === 'charts') return renderCharts();
+  if (route.name === 'share') return renderShare(route);
   if (route.name === 'playlist' || route.name === 'album' || route.name === 'artist') return renderCollection(route);
   return renderHome();
 }

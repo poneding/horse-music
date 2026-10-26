@@ -16,7 +16,7 @@ export function renderSidebar(route) {
     <div class="sidebar-rule"></div>
     <div class="sidebar-heading"><span class="sidebar-label">我的歌单</span><button class="icon-button tiny" data-action="new-playlist" aria-label="新建歌单">${icon('plus', 17)}</button></div>
     <nav class="playlist-nav">${state.playlists.slice(0, 7).map(item => `<button class="playlist-nav-item ${playlist?.id === item.id ? 'active' : ''}" data-route="${playlistPath(item.id)}"><span class="playlist-dot"></span>${escapeHtml(item.title)}</button>`).join('')}</nav>
-    <div class="sidebar-bottom"><span class="mini-live"><i></i> 正在连接音乐库</span><a class="admin-link" href="/admin" data-link>${icon('disc', 15)} 管理音乐库</a></div>
+    <div class="sidebar-bottom"><a class="admin-link" href="/admin" data-link>${icon('disc', 15)} 管理音乐库</a></div>
   </aside>`;
 }
 

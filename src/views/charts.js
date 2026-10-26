@@ -1,9 +1,9 @@
 import { renderPageHeading } from '../components/page-heading.js';
 import { renderArtistCharts, renderChartList } from '../components/track-list.js';
-import { rankedTracks, totalPlays } from '../data/library.js';
+import { chartTracks, totalPlays } from '../data/library.js';
 
 export function renderCharts() {
-  const tracks = rankedTracks();
+  const tracks = chartTracks();
   return `${renderPageHeading({
     eyebrow: 'PLAY CHARTS',
     title: '播放排行',

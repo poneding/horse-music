@@ -28,8 +28,13 @@ export function parseLocation() {
   if (pathname === '/favorites') return { name: 'favorites', path: pathname };
   if (pathname === '/search') return { name: 'search', path: pathname, query };
 
+  const shareMatch = pathname.match(/^\/s\/([^/]+)$/);
+  if (shareMatch) return { name: 'share', path: pathname, code: decodeSegment(shareMatch[1]) };
+
   const playlistMatch = pathname.match(/^\/playlists\/([^/]+)$/);
   if (playlistMatch) return { name: 'playlist', path: pathname, id: decodeSegment(playlistMatch[1]) };
+
+  if (pathname === '/albums') return { name: 'albums', path: pathname };
 
   const albumMatch = pathname.match(/^\/albums\/([^/]+)$/);
   if (albumMatch) return { name: 'album', path: pathname, id: decodeSegment(albumMatch[1]) };
@@ -134,6 +139,10 @@ export function albumPath(idOrTitle) {
 
 export function artistPath(id) {
   return `/artists/${encodeURIComponent(id)}`;
+}
+
+export function sharePath(code) {
+  return `/s/${encodeURIComponent(code)}`;
 }
 
 export function adminPath(tab = 'overview') {

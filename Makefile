@@ -17,6 +17,7 @@ LOCAL_PORT     ?= 8080
 DATA_DIR       ?= ./data
 ADMIN_USER     ?= admin
 ADMIN_PASSWORD ?=
+TRUST_PROXY    ?=
 
 NAMESPACE      ?= default
 APP            ?= horse-music
@@ -38,6 +39,7 @@ install: ## 安装生产依赖（npm ci）
 check: ## 检查 Node.js 语法与 package.json
 	@node -e "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8'))"
 	@node --check server.js
+	@node --check sw.js
 	@find server -name '*.js' -exec node --check {} +
 	@set -e; for file in $$(find src -name '*.js'); do \
 		tmp=$$(mktemp /tmp/horse-check-XXXXXX); \
@@ -51,7 +53,7 @@ run: ## 本地运行播放器（默认 4173 端口）
 	@test -d node_modules || npm ci
 	@echo "本地地址：http://localhost:$(PORT)"
 	@echo "管理端：  http://localhost:$(PORT)/admin"
-	PORT=$(PORT) DATA_DIR=$(DATA_DIR) ADMIN_USER=$(ADMIN_USER) ADMIN_PASSWORD='$(or $(ADMIN_PASSWORD),admin123)' npm start
+	PORT=$(PORT) DATA_DIR=$(DATA_DIR) ADMIN_USER=$(ADMIN_USER) ADMIN_PASSWORD='$(or $(ADMIN_PASSWORD),admin123)' TRUST_PROXY=$(TRUST_PROXY) npm start
 
 dev: run ## make run 的别名
 

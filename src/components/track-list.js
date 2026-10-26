@@ -1,12 +1,22 @@
 import { icon } from '../core/icons.js';
-import { artistPath, currentRoute } from '../core/router.js';
-import { currentTrack, genres, IMG_LAZY, state } from '../core/state.js';
+import { albumPath, artistPath, currentRoute } from '../core/router.js';
+import { currentTrack, IMG_LAZY, state } from '../core/state.js';
 import { coverFor, escapeHtml, formatTime, normalizeName } from '../core/util.js';
-import { artistPlayRanking } from '../data/library.js';
+import { artistPlayRanking, CHART_LIMIT, genreOptions } from '../data/library.js';
 import { trackRow } from './track-row.js';
 
+const SORT_OPTIONS = [
+  ['recent', '最近添加'],
+  ['title', '歌曲名'],
+  ['artist', '歌手'],
+  ['duration', '时长'],
+  ['plays', '播放次数']
+];
+
 export function renderFilters(total) {
-  return `<div class="filter-row">${genres.map(genre => `<button class="filter-chip ${state.genre === genre ? 'selected' : ''}" data-genre="${genre}">${genre}</button>`).join('')}<span class="filter-result">${total} 首歌曲</span></div>`;
+  const genres = genreOptions();
+  // 风格来自曲库（含音频内嵌标签），必须转义后再进入属性与文本。
+  return `<div class="filter-row">${genres.map(genre => `<button class="filter-chip ${state.genre === genre ? 'selected' : ''}" data-genre="${escapeHtml(genre)}">${escapeHtml(genre)}</button>`).join('')}<label class="sort-control">${icon('chart', 13)}<select data-sort aria-label="排序方式">${SORT_OPTIONS.map(([value, label]) => `<option value="${value}"${state.sort === value ? ' selected' : ''}>${label}</option>`).join('')}</select>${icon('chevronDown', 12)}</label><span class="filter-result">${total} 首歌曲</span></div>`;
 }
 
 export function renderTrackList(tracks, compact = false, metaFor = null, metaLabel = '风格') {
@@ -17,20 +27,23 @@ export function renderTrackList(tracks, compact = false, metaFor = null, metaLab
   }
   const visible = tracks.slice(0, state.listLimit);
   const remaining = tracks.length - visible.length;
-  return `<div class="track-list ${compact ? 'compact-list' : ''}"><div class="track-list-head"><span>#</span><span>歌曲</span><span>专辑</span><span>${metaLabel}</span><span>${icon('clock', 14)}</span></div>${visible.map((track, index) => trackRow(track, index, true, metaFor ? metaFor(track) : '')).join('')}</div>${remaining > 0 ? `<div class="load-more-row"><button class="button button-outline" data-action="load-more">加载更多（剩余 ${remaining} 首）</button></div>` : ''}`;
+  return `<div class="track-list ${compact ? 'compact-list' : ''}"><div class="track-list-head"><span>#</span><span>歌曲</span><span>专辑</span><span>${metaLabel}</span><span class="track-head-actions"></span><span>${icon('clock', 14)}</span></div>${visible.map((track, index) => trackRow(track, index, true, metaFor ? metaFor(track) : '')).join('')}</div>${remaining > 0 ? `<div class="load-more-row"><button class="button button-outline" data-action="load-more">加载更多（剩余 ${remaining} 首）</button></div>` : ''}`;
 }
 
 function chartRow(track, index, max) {
   const current = currentTrack()?.id === track.id;
   const liked = state.favorites.has(track.id);
   const count = Number(track.playCount) || 0;
+  const album = track.album
+    ? `<button class="track-album chart-track-album" data-route="${albumPath(track.albumId || track.album)}">${escapeHtml(track.album)}</button>`
+    : '<span class="track-album chart-track-album">单曲</span>';
   return `<div class="chart-row ${current ? 'is-current' : ''}" data-track-row="${escapeHtml(track.id)}">
     <span class="chart-rank ${index < 3 ? 'chart-rank-top' : ''}">${String(index + 1).padStart(2, '0')}</span>
     <button class="track-main" data-play-track="${escapeHtml(track.id)}"><img class="track-cover" ${IMG_LAZY} src="${escapeHtml(coverFor(track))}" alt="" /><span class="track-copy"><strong>${escapeHtml(track.title)}</strong><span>${escapeHtml(track.artist)}</span></span></button>
-    <span class="chart-track-album">${escapeHtml(track.album || '单曲')}</span>
+    ${album}
     <span class="chart-bar" aria-hidden="true"><i style="width:${Math.max(6, Math.round(count / max * 100))}%"></i></span>
     <span class="chart-count">${count} 次</span>
-    <button class="icon-button track-like ${liked ? 'liked' : ''}" data-favorite="${escapeHtml(track.id)}" aria-label="${liked ? '取消收藏' : '收藏'}">${icon('heart', 17)}</button>
+    <div class="track-actions"><button class="icon-button track-like ${liked ? 'liked' : ''}" data-favorite="${escapeHtml(track.id)}" aria-label="${liked ? '取消收藏' : '收藏'}">${icon('heart', 17)}</button><button class="icon-button track-more" data-track-menu="${escapeHtml(track.id)}" aria-label="${escapeHtml(track.title)} 的更多操作" title="更多操作">${icon('more', 16)}</button></div>
     <span class="track-duration">${track.duration ? formatTime(track.duration) : '--:--'}</span>
   </div>`;
 }
@@ -38,9 +51,8 @@ function chartRow(track, index, max) {
 export function renderChartList(tracks) {
   if (!tracks.length) return `<div class="empty-state">${icon('chart', 30)}<strong>还没有播放记录</strong><span>开始播放歌曲，这里会按播放次数生成排行</span></div>`;
   const max = Math.max(1, Number(tracks[0].playCount) || 1);
-  const visible = tracks.slice(0, state.listLimit);
-  const remaining = tracks.length - visible.length;
-  return `<div class="track-list chart-list">${visible.map((track, index) => chartRow(track, index, max)).join('')}</div>${remaining > 0 ? `<div class="load-more-row"><button class="button button-outline" data-action="load-more">加载更多（剩余 ${remaining} 首）</button></div>` : ''}`;
+  const visible = tracks.slice(0, CHART_LIMIT);
+  return `<div class="track-list chart-list">${visible.map((track, index) => chartRow(track, index, max)).join('')}</div>`;
 }
 
 export function renderArtistCharts() {

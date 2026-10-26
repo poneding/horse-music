@@ -1,6 +1,6 @@
-data/
+/data/
 node_modules/
-outputs/
-work/
+/outputs/
+/work/
 *.log
 .DS_Store

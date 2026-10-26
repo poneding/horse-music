@@ -3,14 +3,15 @@ const fsp = require('node:fs/promises');
 const path = require('node:path');
 const zlib = require('node:zlib');
 const { pipeline } = require('node:stream/promises');
-const { ROOT, SRC_DIR, PUBLIC_CACHE } = require('../config');
+const { ROOT, SRC_DIR } = require('../config');
 const { json } = require('./http');
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
-  '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.json': 'application/json; charset=utf-8'
+  '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8'
 };
 
 const STATIC_FILES = new Map([
@@ -18,11 +19,19 @@ const STATIC_FILES = new Map([
   ['/index.html', 'index.html'],
   ['/styles.css', 'styles.css'],
   ['/bojack-mark.jpg', 'bojack-mark.jpg'],
-  ['/favicon.png', 'favicon.png']
+  ['/favicon.png', 'favicon.png'],
+  ['/manifest.webmanifest', 'manifest.webmanifest'],
+  ['/sw.js', 'sw.js'],
+  ['/icon-192.png', 'icon-192.png'],
+  ['/icon-512.png', 'icon-512.png'],
+  ['/icon-512-maskable.png', 'icon-512-maskable.png'],
+  ['/apple-touch-icon.png', 'apple-touch-icon.png']
 ]);
 const FONT_RE = /^\/fonts\/[a-z0-9-]+\.woff2$/;
 const SRC_RE = /^\/src\/[a-zA-Z0-9_./-]+\.js$/;
 const COMPRESSIBLE_RE = /\.(?:html|js|css)$/i;
+// 图标/字体不是内容哈希文件名，只缓存一天并保留 ETag，替换后较快生效。
+const STATIC_ASSET_CACHE = 'public, max-age=86400';
 const staticCache = new Map();
 
 function staticFileFor(pathname) {
@@ -80,7 +89,8 @@ async function sendStaticFile(req, res, { relative, absolute }) {
 
   const ext = path.extname(file).toLowerCase();
   const compressible = COMPRESSIBLE_RE.test(file);
-  const cacheControl = compressible ? 'no-cache' : PUBLIC_CACHE;
+  // 外壳、脚本与清单每次回源校验；图标/字体不是内容哈希文件名，使用 STATIC_ASSET_CACHE。
+  const cacheControl = compressible || ext === '.webmanifest' ? 'no-cache' : STATIC_ASSET_CACHE;
   const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
   const headers = {
     'Content-Type': mimeTypes[ext] || 'application/octet-stream',

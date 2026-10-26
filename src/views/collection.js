@@ -14,12 +14,15 @@ export function renderCollection(route) {
     })}<div class="empty-state">${icon('music', 30)}<strong>内容不存在</strong><span>返回曲库继续听歌吧</span><a href="/library" data-link class="button button-dark">回到全部歌曲</a></div>`;
   }
   const { item, tracks, eyebrow, title, description, kind } = collection;
+  const shareable = kind === 'album' || kind === 'playlist';
   return `${renderPageHeading({
     eyebrow,
     title: escapeHtml(title),
     description: escapeHtml(description),
     image: escapeHtml(coverFor(item)),
     imageClass: kind === 'artist' ? 'artist-heading-avatar' : '',
-    playAction: tracks.length ? 'play-listed' : ''
+    playAction: tracks.length ? 'play-listed' : '',
+    shareAction: shareable && tracks.length ? `data-share-${kind}="${escapeHtml(item.id)}"` : '',
+    shareLabel: kind === 'playlist' ? '分享歌单' : '分享专辑'
   })}<section class="track-section inner-track-section">${renderTrackList(tracks, true)}</section>`;
 }
