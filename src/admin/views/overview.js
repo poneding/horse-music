@@ -26,7 +26,7 @@ function formatBytes(bytes) {
 }
 
 function renderStorageCard() {
-  return `<section class="admin-section-card storage-card" data-storage-card data-storage-state="loading"><div class="admin-section-heading"><div><h2>存储占用</h2><span data-storage-total>正在读取…</span></div></div><div class="storage-metrics"><div class="storage-metric"><span>媒体总大小</span><strong data-storage-media>—</strong><small data-storage-files>正在读取…</small></div><div class="storage-metric"><span>数据 JSON</span><strong data-storage-data>—</strong><small>library / plays / auth / shares / favorites</small></div><div class="storage-metric"><span>曲库内容</span><strong data-storage-counts>—</strong><small>歌曲 · 专辑 · 歌手 · 歌单</small></div></div></section>`;
+  return `<section class="admin-section-card storage-card" data-storage-card data-storage-state="loading"><div class="admin-section-heading"><div><h2>存储占用</h2><span data-storage-total>正在读取…</span></div></div><div class="storage-metrics"><div class="storage-metric"><span>媒体总大小</span><strong data-storage-media>—</strong><small data-storage-files>正在读取…</small></div><div class="storage-metric"><span>数据 JSON</span><strong data-storage-data>—</strong><small>曲库 · 播放记录 · 登录凭证 · 分享 · 收藏</small></div><div class="storage-metric"><span>曲库内容</span><strong data-storage-counts>—</strong><small>歌曲 · 专辑 · 歌手 · 歌单</small></div></div></section>`;
 }
 
 export async function mountStorageUsage() {
