@@ -26,7 +26,7 @@ export function handleAdminAction(action) {
   if (action === 'upload') openUploadDialog();
   if (action === 'new-album') openAlbumDialog();
   if (action === 'new-playlist') {
-    openPlaylistCreateDialog({ withCover: true, onCreated: renderApp });
+    openPlaylistCreateDialog({ onCreated: renderApp });
   }
   if (action === 'clear-plays') void clearPlayHistory();
   if (action === 'load-more-tracks') {

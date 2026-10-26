@@ -165,11 +165,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .playing-bars i:nth-child(3) { height: 65%; animation-delay: 380ms; }
 @keyframes sound { to { height: 18%; } }
 .track-main { display: flex; min-width: 0; align-items: center; gap: 11px; padding: 0; border: 0; text-align: left; background: transparent; }
-.track-cover { width: 37px; height: 37px; flex: none; border-radius: 3px; object-fit: cover; background: #e5e8e2; }
+.track-cover-button { display: flex; flex: none; padding: 0; border: 0; border-radius: 3px; background: transparent; }
+.track-cover-button:hover .track-cover, .track-cover-button:focus-visible .track-cover { opacity: .82; }
+.track-cover { width: 37px; height: 37px; flex: none; border-radius: 3px; object-fit: cover; background: #e5e8e2; transition: opacity .15s; }
 .track-copy { display: grid; min-width: 0; gap: 4px; }
 .track-copy strong, .track-copy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.track-copy strong { color: #3a3e38; font-size: 11px; font-weight: 600; }
+.track-copy strong { display: block; color: #3a3e38; font-size: 11px; font-weight: 600; }
+.track-title { display: block; width: 100%; min-width: 0; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; }
 .track-copy span { color: #999e95; font-size: 10px; }
+.track-artist .artist-link { color: inherit; text-decoration: none; }
+.track-artist .artist-link:hover, .track-artist .artist-link:focus-visible { color: var(--accent-dark); text-decoration: underline; }
 .track-album { overflow: hidden; padding: 4px 0; border: 0; text-align: left; color: #81867e; background: transparent; font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
 .track-album:hover { color: var(--accent-dark); }
 .track-genre { overflow: hidden; color: #9b9f97; font-size: 9px; white-space: nowrap; text-overflow: ellipsis; }
@@ -351,6 +356,7 @@ dialog::backdrop { background: rgba(25,31,25,.28); backdrop-filter: blur(3px); }
 .field-label input::placeholder, .field-label textarea::placeholder { color: #b2b6ad; }
 .player-bar .icon-button[aria-pressed="true"] { color: var(--accent-dark); background: var(--accent-pale); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+.dialog-note { margin: 4px 0 0; color: #a1a69c; font-size: 9px; line-height: 1.7; }
 .share-dialog { width: min(460px, calc(100vw - 32px)); }
 .share-dialog .dialog-actions { flex-wrap: wrap; }
 .share-preview { display: flex; align-items: center; gap: 14px; padding: 12px; border: 1px solid #eceee9; border-radius: 6px; background: #fff; }
@@ -1185,6 +1191,7 @@ html.dark-theme .upload-item-file { color: #84887f; }
 html.dark-theme .upload-progress-track { background: #343630; }
 html.dark-theme .upload-progress [data-progress-text] { color: #d3a08f; }
 html.dark-theme .field-label > small { color: #8f938a; }
+html.dark-theme .dialog-note { color: #8f938a; }
 html.dark-theme .login-screen { background: #171815; }
 html.dark-theme .login-visual { background: #49332d; }
 html.dark-theme .login-side { background: #1a1b18; }

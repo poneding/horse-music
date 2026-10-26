@@ -2,7 +2,8 @@ const crypto = require('node:crypto');
 const { RECENT_PLAY_LIMIT } = require('../config');
 const { normalizeKey, splitArtistText, uniqueArtistNames, ensureArtist, findAlbum } = require('../services/catalog');
 
-const SCHEMA_VERSION = 4;
+// v5：清洗歌手名里的零宽字符，避免前端按名字统计的歌曲数量与服务端认领的歌手对不上。
+const SCHEMA_VERSION = 5;
 
 function migrateDb(db) {
   let changed = false;

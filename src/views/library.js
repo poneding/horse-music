@@ -4,7 +4,7 @@ import { state } from '../core/state.js';
 import { coverFor, escapeHtml } from '../core/util.js';
 import { renderPageHeading } from '../components/page-heading.js';
 import { renderFilters, renderTrackList } from '../components/track-list.js';
-import { albumTracks, artistTracks, filteredTracks, searchGroups } from '../data/library.js';
+import { albumTracks, artistTracks, filteredTracks, playlistCover, searchGroups } from '../data/library.js';
 
 function groupItem({ kind, id, title, subtitle, image }) {
   return `<button class="search-group-item ${kind}" data-route="${id}" type="button"><img loading="lazy" decoding="async" src="${escapeHtml(image)}" alt="" /><span class="search-group-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle)}</small></span></button>`;
@@ -37,7 +37,7 @@ function renderSearchGroups(query) {
       id: playlistPath(playlist.id),
       title: playlist.title,
       subtitle: `${playlist.trackIds?.length || 0} 首歌曲`,
-      image: coverFor(playlist)
+      image: playlistCover(playlist)
     })).join('')}</div></section>`);
   }
   return sections.length ? `<section class="search-groups" aria-label="相关的专辑、歌手和歌单">${sections.join('')}</section>` : '';

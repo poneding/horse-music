@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const { respond, readJson } = require('../../lib/http');
 const { applyOrder } = require('../../lib/order');
 const { getDb, touchDb, writeDb } = require('../../store/library');
-const { splitArtistText, uniqueArtistNames, ensureArtist, normalizeKey } = require('../../services/catalog');
+const { splitArtistText, uniqueArtistNames, cleanArtistName, ensureArtist, normalizeKey } = require('../../services/catalog');
 
 async function handle(req, res, url) {
   const { pathname } = url;
@@ -48,7 +48,7 @@ async function handle(req, res, url) {
     const body = await readJson(req);
     if (!String(body.title || '').trim()) return respond(res, 400, { error: '专辑名称不能为空' });
     const db = getDb();
-    const artist = String(body.artist || '未知艺人').trim() || '未知艺人';
+    const artist = cleanArtistName(String(body.artist || '未知艺人')) || '未知艺人';
     const artistNames = uniqueArtistNames(splitArtistText(artist));
     const album = {
       id: crypto.randomUUID(),

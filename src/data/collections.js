@@ -1,4 +1,4 @@
-import { albumTracks, artistAlbumCount, artistTracks, chartTracks, filteredTracks, recentTracks } from './library.js';
+import { albumTracks, artistAlbumCount, artistAlbums, artistTracks, chartTracks, filteredTracks, recentTracks } from './library.js';
 import { shareTracks } from './shares.js';
 import { state } from '../core/state.js';
 import { normalizeName } from '../core/util.js';
@@ -46,6 +46,7 @@ export function collectionFor(route) {
       kind: 'artist',
       item,
       tracks,
+      albums: artistAlbums(item),
       eyebrow: 'ARTIST',
       title: item.name,
       description: `${tracks.length} 首歌曲 · ${artistAlbumCount(item)} 张专辑${item.description ? ` · ${item.description}` : ''}`

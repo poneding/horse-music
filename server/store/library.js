@@ -70,6 +70,8 @@ function flushDb() {
 function buildStatePayload(recentPlays) {
   return {
     ...db,
+    // 客户端用它判断其他标签页/设备的改动是否需要重新拉取曲库。
+    version: dbVersion,
     tracks: db.tracks.map(track => {
       const { lyrics, ...rest } = track;
       return { ...rest, hasLyrics: Boolean(lyrics || track.lyricsUrl) };

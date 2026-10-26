@@ -11,12 +11,15 @@ async function handle(req, res, url) {
     if (!String(body.title || '').trim()) return respond(res, 400, { error: '歌单名称不能为空' });
     const db = getDb();
     const validTrackIds = new Set(db.tracks.map(track => track.id));
+    const trackIds = Array.isArray(body.trackIds) ? [...new Set(body.trackIds.filter(id => validTrackIds.has(id)))] : [];
+    const now = new Date().toISOString();
     const playlist = {
       id: crypto.randomUUID(),
       title: String(body.title).trim(),
       description: String(body.description || '').trim(),
-      coverUrl: String(body.coverUrl || ''),
-      trackIds: Array.isArray(body.trackIds) ? [...new Set(body.trackIds.filter(id => validTrackIds.has(id)))] : []
+      trackIds,
+      // 歌单封面跟随最近加入的歌曲，addedAt 记录每首歌的加入时间。
+      addedAt: Object.fromEntries(trackIds.map(id => [id, now]))
     };
     db.playlists.unshift(playlist);
     touchDb();
@@ -42,7 +45,13 @@ async function handle(req, res, url) {
     if (!playlist) return respond(res, 404, { error: '找不到这个歌单' });
     const requested = Array.isArray(body.trackIds) ? body.trackIds : [];
     const validTrackIds = new Set(db.tracks.map(track => track.id));
+    const previousAddedAt = playlist.addedAt && typeof playlist.addedAt === 'object' ? playlist.addedAt : {};
     playlist.trackIds = [...new Set(requested.filter(id => validTrackIds.has(id)))];
+    const now = new Date().toISOString();
+    playlist.addedAt = Object.fromEntries(playlist.trackIds.map(id => [
+      id,
+      typeof previousAddedAt[id] === 'string' && previousAddedAt[id] ? previousAddedAt[id] : now
+    ]));
     touchDb();
     await writeDb();
     return respond(res, 200, { playlist });

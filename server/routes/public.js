@@ -113,6 +113,21 @@ function albumTracksFor(db, album) {
     });
 }
 
+function playlistLatestTrack(playlist, byId, trackIds) {
+  const addedAt = playlist.addedAt && typeof playlist.addedAt === 'object' ? playlist.addedAt : null;
+  let latest = null;
+  let latestAt = -Infinity;
+  let last = null;
+  for (const id of trackIds) {
+    const track = byId.get(id);
+    if (!track) continue;
+    last = track;
+    const stamp = Date.parse(addedAt?.[id] || '');
+    if (Number.isFinite(stamp) && stamp >= latestAt) { latestAt = stamp; latest = track; }
+  }
+  return latest || last;
+}
+
 function shareResponse(record, totalCount) {
   return {
     ...record,
@@ -254,11 +269,12 @@ async function handlePublic(req, res, url) {
         if (trackIds.length >= MAX_SHARE_TRACKS) break;
       }
       if (!trackIds.length) return json(res, 400, { error: '这个歌单还没有歌曲' });
+      const latestTrack = playlistLatestTrack(playlist, byId, trackIds);
       share = {
         kind,
         title: playlist.title || '未命名歌单',
         description: `${trackIds.length} 首歌曲`,
-        coverUrl: playlist.coverUrl || byId.get(trackIds[0])?.coverUrl || '',
+        coverUrl: latestTrack?.coverUrl || '',
         trackIds
       };
     } else {

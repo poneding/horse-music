@@ -1,13 +1,24 @@
 const crypto = require('node:crypto');
 
+// 零宽空格、BOM 这类不可见字符常随标签或复制粘贴混进歌手名。
+// 服务端匹配时一直是忽略它们的，如果把它们真的存进档案，前端按名字统计歌曲数量时就会对不上，
+// 表现为「改了歌手，但歌手的歌曲数量没有变化」。
+const INVISIBLE_NAME_RE = /[\u200B-\u200D\u2060\uFEFF]/g;
+
 function cleanTag(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function stripInvisible(value) {
+  return String(value || '').replace(INVISIBLE_NAME_RE, '');
+}
+
+function cleanArtistName(value) {
+  return cleanTag(stripInvisible(value));
+}
+
 function normalizeKey(value) {
-  return String(value || '')
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+  return stripInvisible(String(value || '').normalize('NFKC'))
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
@@ -21,7 +32,7 @@ function uniqueArtistNames(values) {
   const seen = new Set();
   const names = [];
   for (const value of values) {
-    const name = cleanTag(value);
+    const name = cleanArtistName(value);
     const key = normalizeKey(name);
     if (!key || seen.has(key)) continue;
     seen.add(key);
@@ -36,7 +47,7 @@ function namesFromTag(plural, singular) {
 }
 
 function ensureArtist(db, name, coverUrl = '') {
-  const cleanName = cleanTag(name);
+  const cleanName = cleanArtistName(name);
   const key = normalizeKey(cleanName);
   if (!key || key === normalizeKey('未知艺人')) return { artist: null, created: false, updated: false };
   let artist = db.artists.find(item => normalizeKey(item.name) === key);
@@ -47,6 +58,9 @@ function ensureArtist(db, name, coverUrl = '') {
   }
   let updated = false;
   if (!artist.id) { artist.id = crypto.randomUUID(); updated = true; }
+  // 旧数据里歌手名可能带着不可见字符：只把这类字符清掉，保留档案本来的大小写与写法。
+  const storedName = cleanArtistName(artist.name);
+  if (artist.name !== storedName) { artist.name = storedName; updated = true; }
   if (!artist.coverUrl && coverUrl) { artist.coverUrl = coverUrl; updated = true; }
   return { artist, created: false, updated };
 }
@@ -80,4 +94,4 @@ function nextAlbumOrder(db, albumId) {
   return max + 1;
 }
 
-module.exports = { cleanTag, normalizeKey, splitArtistText, uniqueArtistNames, namesFromTag, ensureArtist, findAlbum, nextAlbumOrder };
+module.exports = { cleanTag, cleanArtistName, normalizeKey, splitArtistText, uniqueArtistNames, namesFromTag, ensureArtist, findAlbum, nextAlbumOrder };

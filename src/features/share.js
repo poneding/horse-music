@@ -3,7 +3,7 @@ import { sharePath } from '../core/router.js';
 import { state } from '../core/state.js';
 import { showToast } from '../core/toast.js';
 import { coverFor, escapeHtml } from '../core/util.js';
-import { albumTracks } from '../data/library.js';
+import { albumTracks, playlistCover } from '../data/library.js';
 import { createShare } from '../data/shares.js';
 import { dialogShell } from '../components/dialog.js';
 
@@ -158,6 +158,6 @@ export function sharePlaylist(playlist) {
     request: { kind: 'playlist', playlistId: playlist.id },
     title: playlist.title,
     subtitle: `${tracks.length} 首歌曲`,
-    coverUrl: coverFor(playlist)
+    coverUrl: playlistCover(playlist)
   });
 }

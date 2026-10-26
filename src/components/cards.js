@@ -2,7 +2,7 @@ import { icon } from '../core/icons.js';
 import { albumPath, artistPath, playlistPath } from '../core/router.js';
 import { IMG_LAZY } from '../core/state.js';
 import { coverFor, escapeHtml } from '../core/util.js';
-import { albumTracks, artistAlbumCount, artistTracks } from '../data/library.js';
+import { albumTracks, artistAlbumCount, artistTracks, playlistCover } from '../data/library.js';
 
 export function albumCard(album) {
   const count = albumTracks(album).length;
@@ -16,5 +16,5 @@ export function artistCard(artist) {
 
 export function playlistCard(playlist) {
   const count = (playlist.trackIds || []).length;
-  return `<button class="playlist-card" data-route="${playlistPath(playlist.id)}"><span class="playlist-art"><img ${IMG_LAZY} src="${escapeHtml(coverFor(playlist))}" alt="" /><span class="playlist-play">${icon('play', 19)}</span></span><span class="album-card-title">${escapeHtml(playlist.title)}</span><span class="album-card-meta">${escapeHtml(playlist.description || '一头精选')} · ${count} 首</span></button>`;
+  return `<button class="playlist-card" data-route="${playlistPath(playlist.id)}"><span class="playlist-art"><img ${IMG_LAZY} src="${escapeHtml(playlistCover(playlist))}" alt="" /><span class="playlist-play">${icon('play', 19)}</span></span><span class="album-card-title">${escapeHtml(playlist.title)}</span><span class="album-card-meta">${escapeHtml(playlist.description || '一头精选')} · ${count} 首</span></button>`;
 }

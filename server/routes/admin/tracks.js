@@ -25,6 +25,9 @@ async function deleteTracks(ids) {
   db.tracks = db.tracks.filter(track => !wanted.has(track.id));
   db.playlists.forEach(playlist => {
     playlist.trackIds = playlist.trackIds.filter(trackId => !wanted.has(trackId));
+    if (playlist.addedAt && typeof playlist.addedAt === 'object') {
+      for (const trackId of wanted) delete playlist.addedAt[trackId];
+    }
   });
   for (const track of removed) {
     removeTrackStats(track.id);

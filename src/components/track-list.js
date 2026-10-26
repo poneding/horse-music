@@ -3,6 +3,7 @@ import { albumPath, artistPath, currentRoute } from '../core/router.js';
 import { currentTrack, IMG_LAZY, state } from '../core/state.js';
 import { coverFor, escapeHtml, formatTime, normalizeName } from '../core/util.js';
 import { artistPlayRanking, CHART_LIMIT, genreOptions } from '../data/library.js';
+import { trackArtistLinks } from './track-artists.js';
 import { trackRow } from './track-row.js';
 
 const SORT_OPTIONS = [
@@ -39,7 +40,7 @@ function chartRow(track, index, max) {
     : '<span class="track-album chart-track-album">单曲</span>';
   return `<div class="chart-row ${current ? 'is-current' : ''}" data-track-row="${escapeHtml(track.id)}">
     <span class="chart-rank ${index < 3 ? 'chart-rank-top' : ''}">${String(index + 1).padStart(2, '0')}</span>
-    <button class="track-main" data-play-track="${escapeHtml(track.id)}"><img class="track-cover" ${IMG_LAZY} src="${escapeHtml(coverFor(track))}" alt="" /><span class="track-copy"><strong>${escapeHtml(track.title)}</strong><span>${escapeHtml(track.artist)}</span></span></button>
+    <div class="track-main"><button class="track-cover-button" type="button" data-play-track="${escapeHtml(track.id)}" aria-label="播放 ${escapeHtml(track.title)}"><img class="track-cover" ${IMG_LAZY} src="${escapeHtml(coverFor(track))}" alt=""/></button><span class="track-copy"><button class="track-title" type="button" data-play-track="${escapeHtml(track.id)}"><strong>${escapeHtml(track.title)}</strong></button>${trackArtistLinks(track)}</span></div>
     ${album}
     <span class="chart-bar" aria-hidden="true"><i style="width:${Math.max(6, Math.round(count / max * 100))}%"></i></span>
     <span class="chart-count">${count} 次</span>

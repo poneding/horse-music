@@ -2,7 +2,7 @@ import { api } from '../core/api.js';
 import { currentRoute } from '../core/router.js';
 import { renderApp } from '../core/render-bus.js';
 import { state, genres } from '../core/state.js';
-import { normalizeName } from '../core/util.js';
+import { artistNamesFor, coverFor, normalizeName } from '../core/util.js';
 import { hydrateFavorites } from './favorites.js';
 
 export { genres };
@@ -13,11 +13,29 @@ let filteredCache = null;
 
 export async function refreshLibrary() {
   const data = await api('/api/state');
+  applyLibraryState(data);
+  return data;
+}
+
+/**
+ * 其他标签页或设备改动曲库后，回到本页时按服务端版本号决定是否刷新。
+ * 歌手卡片的歌曲数量是从曲库实时算出来的，只要曲库没同步，改了歌手的页面就还是旧数字；
+ * 这里只在版本真的变化时重新应用状态，避免每次切回窗口都白白重渲染。
+ */
+export async function refreshLibraryIfStale() {
+  const data = await api('/api/state');
+  if (data.version === undefined || data.version === state.libraryVersion) return false;
+  applyLibraryState(data);
+  return true;
+}
+
+function applyLibraryState(data) {
   state.tracks = data.tracks || [];
   state.albums = data.albums || [];
   state.artists = data.artists || [];
   state.playlists = data.playlists || [];
   state.recentPlays = data.recentPlays || [];
+  if (data.version !== undefined) state.libraryVersion = data.version;
   rebuildIndexes();
   if (state.genre !== '全部' && !state.tracks.some(track => track.genre === state.genre)) state.genre = '全部';
   hydrateFavorites(Array.isArray(data.favorites) ? data.favorites : []);
@@ -38,7 +56,7 @@ export function rebuildIndexes() {
   for (const track of state.tracks) {
     byId.set(track.id, track);
     haystack.set(track.id, `${track.title} ${track.artist} ${track.album} ${track.genre}`.toLowerCase());
-    const names = Array.isArray(track.artistNames) && track.artistNames.length ? track.artistNames : [track.artist];
+    const names = artistNamesFor(track);
     const seen = new Set();
     for (const name of names) {
       const key = normalizeName(name);
@@ -66,15 +84,27 @@ export function rebuildIndexes() {
     albumTracksMap.set(album.id, list);
     albumTracksMap.set(normalizeName(album.title), list);
   }
-  const artistAlbumCounts = new Map();
-  for (const [key, list] of artistIndex) {
-    artistAlbumCounts.set(key, new Set(list.map(track => track.albumId || track.album).filter(Boolean)).size);
+  // 歌手页的专辑列表：既包含歌手演唱的歌曲所在专辑，也包含以该歌手为专辑艺人的专辑。
+  // 用专辑 id 去重，名称大小写 / 别名不会把同一张专辑算两次。
+  const artistAlbumIds = new Map();
+  const addArtistAlbum = (name, albumId) => {
+    const key = normalizeName(name);
+    if (!key) return;
+    let set = artistAlbumIds.get(key);
+    if (!set) { set = new Set(); artistAlbumIds.set(key, set); }
+    set.add(albumId);
+  };
+  for (const album of state.albums) {
+    for (const name of artistNamesFor(album)) addArtistAlbum(name, album.id);
+    for (const track of albumTracksMap.get(album.id) || []) {
+      for (const name of artistNamesFor(track)) addArtistAlbum(name, album.id);
+    }
   }
   state.trackById = byId;
   state.artistIndex = artistIndex;
   state.artistByName = new Map(state.artists.map(artist => [normalizeName(artist.name), artist]));
   state.albumTracksMap = albumTracksMap;
-  state.artistAlbumCounts = artistAlbumCounts;
+  state.artistAlbumIds = artistAlbumIds;
   state.searchHaystack = haystack;
   state.recentCache = null;
   state.rankedCache = null;
@@ -94,9 +124,63 @@ export function artistTracks(artist) {
   return state.artistIndex.get(normalizeName(artist.name)) || [];
 }
 
+export function artistAlbums(artist) {
+  if (!artist) return [];
+  const ids = state.artistAlbumIds.get(normalizeName(artist.name));
+  if (!ids || !ids.size) return [];
+  return state.albums.filter(album => ids.has(album.id));
+}
+
 export function artistAlbumCount(artist) {
   if (!artist) return 0;
-  return state.artistAlbumCounts.get(normalizeName(artist.name)) || 0;
+  return state.artistAlbumIds.get(normalizeName(artist.name))?.size || 0;
+}
+
+// 空歌单的兜底封面：从内置图片里按歌单 id 稳定选一张，
+// 既不需要用户手动选封面，也不会每次渲染都换一张造成闪烁。
+const PLAYLIST_FALLBACK_COVERS = [
+  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=700&q=80',
+  'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=700&q=80',
+  'https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=700&q=80',
+  'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=700&q=80',
+  'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=700&q=80',
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=80'
+];
+
+function coverHash(value) {
+  let hash = 0;
+  const text = String(value || '');
+  for (let index = 0; index < text.length; index += 1) hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  return hash;
+}
+
+export function playlistFallbackCover(playlist) {
+  const key = playlist?.id || playlist?.title || '';
+  return PLAYLIST_FALLBACK_COVERS[coverHash(key) % PLAYLIST_FALLBACK_COVERS.length];
+}
+
+/**
+ * 歌单封面跟随「最近加入歌单的歌曲」：
+ * addedAt 记录每首歌加入歌单的时间；没有 addedAt 的旧歌单退回到顺序末尾那首歌。
+ * 歌曲全部被删除或歌单为空时，使用内置兜底封面。
+ */
+export function playlistCover(playlist) {
+  if (!playlist) return PLAYLIST_FALLBACK_COVERS[0];
+  const ids = Array.isArray(playlist.trackIds) ? playlist.trackIds : [];
+  const addedAt = playlist.addedAt && typeof playlist.addedAt === 'object' ? playlist.addedAt : null;
+  let latest = null;
+  let latestAt = -Infinity;
+  let lastAdded = null;
+  for (const id of ids) {
+    const track = state.trackById.get(id);
+    if (!track) continue;
+    lastAdded = track;
+    const stamp = Date.parse(addedAt?.[id] || '');
+    if (Number.isFinite(stamp) && stamp >= latestAt) { latestAt = stamp; latest = track; }
+  }
+  if (latest) return coverFor(latest);
+  if (lastAdded) return coverFor(lastAdded);
+  return playlistFallbackCover(playlist);
 }
 
 export function genreOptions() {
@@ -199,13 +283,18 @@ export function artistPlayRanking(limit = 6) {
   if (!state.artistRankCache) {
     const ranking = new Map();
     for (const track of rankedTracks()) {
-      const names = Array.isArray(track.artistNames) && track.artistNames.length ? track.artistNames : [track.artist || '未知艺人'];
+      const names = artistNamesFor(track);
       for (const name of names) {
         const key = normalizeName(name);
         if (!key) continue;
-        const entry = ranking.get(key) || { name, plays: 0, tracks: 0 };
+        const entry = ranking.get(key) || {
+          name,
+          plays: 0,
+          // 「N 首歌曲」应该等于这位歌手在曲库里的全部歌曲数；
+          // 只统计有播放记录的歌曲时，改了未播放歌曲的歌手后这个数字不会变。
+          tracks: (state.artistIndex.get(key) || []).length
+        };
         entry.plays += Number(track.playCount) || 0;
-        entry.tracks += 1;
         ranking.set(key, entry);
       }
     }
