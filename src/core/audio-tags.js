@@ -110,7 +110,7 @@ function findBytes(haystack, needle, from = 0) {
   return -1;
 }
 
-/** 按需切片读取文件，避免把 60 MB 的音频整个读进内存。 */
+/** 按需切片读取文件，避免把整首音频（可达数百 MB）读进内存。 */
 class Slicer {
   constructor(file) {
     this.file = file;

@@ -10,7 +10,8 @@ import { refreshLibrary } from '../../data/library.js';
 import { dialogShell } from '../../components/dialog.js';
 
 const UPLOAD_AUDIO_EXTENSIONS = new Set(['mp3', 'm4a', 'aac', 'wav', 'ogg', 'flac', 'webm']);
-const UPLOAD_MAX_BYTES = 60 * 1024 * 1024;
+const UPLOAD_MAX_MB = 500;
+const UPLOAD_MAX_BYTES = UPLOAD_MAX_MB * 1024 * 1024;
 const UPLOAD_MAX_BATCH = 20;
 // 国内到日本这类高 RTT 链路单连接吃不满带宽，并发几路能明显提高总吞吐；
 // 上限取 3，留出 CPU（1 核时服务端解析和写盘会互相抢）与临时盘空间。
@@ -29,7 +30,7 @@ function uploadBaseName(filename) {
 export function openUploadDialog() {
   const dialog = dialogShell(`<form class="upload-form batch-upload-form">
     <div class="dialog-head"><div><span class="eyebrow">ADD TO YOUR LIBRARY</span><h2>批量上传音乐</h2><p>一次选择多首，读取标签后统一入库；可逐首修改歌曲信息。</p></div><button type="button" class="icon-button" data-close>${icon('close', 19)}</button></div>
-    <label class="upload-dropzone" for="audio-file"><span class="upload-symbol">${icon('upload', 23)}</span><strong>选择或拖入音频文件</strong><small>支持多选 · 自动读取内嵌标签并预填 · MP3、M4A、AAC、WAV、OGG、FLAC · 单首最大 60 MB，单批最多 ${UPLOAD_MAX_BATCH} 首</small><span class="selected-file" data-audio-name>尚未选择文件</span><input id="audio-file" name="audio" type="file" accept="audio/*,.flac" multiple /></label>
+    <label class="upload-dropzone" for="audio-file"><span class="upload-symbol">${icon('upload', 23)}</span><strong>选择或拖入音频文件</strong><small>支持多选 · 自动读取内嵌标签并预填 · MP3、M4A、AAC、WAV、OGG、FLAC · 单首最大 ${UPLOAD_MAX_MB} MB，单批最多 ${UPLOAD_MAX_BATCH} 首</small><span class="selected-file" data-audio-name>尚未选择文件</span><input id="audio-file" name="audio" type="file" accept="audio/*,.flac" multiple /></label>
     <div class="upload-batch-bar" data-batch-bar hidden><span data-batch-summary></span><button type="button" class="text-link" data-batch-clear>清空列表</button></div>
     <div class="upload-queue" data-upload-queue hidden></div>
     <div class="upload-progress" aria-live="polite"><span class="upload-progress-track"><i data-progress-bar></i></span><span data-progress-text></span></div>
@@ -321,7 +322,7 @@ export function openUploadDialog() {
     const ext = String(file.name.split('.').pop() || '').toLowerCase();
     let error = '';
     if (ext && !UPLOAD_AUDIO_EXTENSIONS.has(ext)) error = '不支持这种音频格式';
-    else if (file.size > UPLOAD_MAX_BYTES) error = '文件超过 60 MB';
+    else if (file.size > UPLOAD_MAX_BYTES) error = `文件超过 ${UPLOAD_MAX_MB} MB`;
     const item = {
       id: `upload-item-${++itemSeq}`,
       key,

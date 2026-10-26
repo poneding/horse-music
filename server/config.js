@@ -12,10 +12,12 @@ const SHARES_FILE = path.join(DATA_DIR, 'shares.json');
 const FAVORITES_FILE = path.join(DATA_DIR, 'favorites.json');
 const SRC_DIR = path.join(ROOT, 'src');
 const PORT = Number(process.env.PORT || 4173);
-// 上传先落在本地临时盘（容器里是 emptyDir），避免 60 MB 的中间文件反复写数据盘。
+// 上传先落在本地临时盘（容器里是 emptyDir），避免大文件的中间产物反复写数据盘。
 const UPLOAD_TMP_DIR = path.resolve(process.env.UPLOAD_TMP_DIR || os.tmpdir());
 
-const MAX_UPLOAD = 60 * 1024 * 1024;
+// 单首上限默认 500 MB，可用 MAX_UPLOAD_MB 覆盖（调大时要同步临时盘容量与 nginx 的 client_max_body_size）。
+const MAX_UPLOAD_MB = Math.max(1, Number(process.env.MAX_UPLOAD_MB) || 500);
+const MAX_UPLOAD = MAX_UPLOAD_MB * 1024 * 1024;
 const STAGED_UPLOAD_TTL = 30 * 60 * 1000;
 // 批量上传最多 20 首，预留少量余量给其他管理端标签预览。
 const MAX_STAGED_UPLOADS = 24;
@@ -57,6 +59,7 @@ module.exports = {
   SRC_DIR,
   PORT,
   UPLOAD_TMP_DIR,
+  MAX_UPLOAD_MB,
   MAX_UPLOAD,
   STAGED_UPLOAD_TTL,
   MAX_STAGED_UPLOADS,

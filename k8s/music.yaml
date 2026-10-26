@@ -102,8 +102,8 @@ spec:
             claimName: horse-music-data
         - name: tmp
           emptyDir:
-            # 上传先落临时盘：单首 60 MB、单批 20 首，算上封面要留足余量。
-            sizeLimit: 2Gi
+            # 上传先落临时盘：单首 500 MB、单批 20 首，暂存最多 24 份，留足余量。
+            sizeLimit: 12Gi
 ---
 apiVersion: v1
 kind: Service

@@ -6,6 +6,7 @@ const { pipeline } = require('node:stream/promises');
 const Busboy = require('busboy');
 const {
   UPLOAD_TMP_DIR,
+  MAX_UPLOAD_MB,
   MAX_UPLOAD,
   MAX_COVER,
   MAX_LYRICS,
@@ -61,6 +62,8 @@ async function readUpload(req) {
   const fields = {};
   const files = {};
   const writes = [];
+  // 命中上限时要能主动关闭写入流，否则 pipeline 会一直等不到文件流结束。
+  const sinks = new Set();
   let totalBytes = 0;
   const cleanup = () => fsp.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   try {
@@ -72,6 +75,9 @@ async function readUpload(req) {
         settled = true;
         try { req.unpipe(busboy); } catch {}
         req.resume();
+        // busboy 触发 limit 后不会 push(null)，不销毁写入流 pipeline 就永远不结束，
+        // 客户端只能干等；这里统一收尾后由外层 allSettled 等待清理完成。
+        for (const sink of sinks) sink.destroy();
         reject(error);
       };
       try {
@@ -84,12 +90,23 @@ async function readUpload(req) {
         if (!['audio', 'cover', 'lyrics'].includes(name)) { stream.resume(); return; }
         const original = path.basename(info.filename || '');
         const target = path.join(tempDir, `${name}-${crypto.randomUUID()}`);
+        const limit = name === 'audio' ? MAX_UPLOAD : name === 'cover' ? MAX_COVER : MAX_LYRICS;
+        const limitError = name === 'audio'
+          ? `单次上传上限为 ${MAX_UPLOAD_MB} MB`
+          : name === 'cover' ? `封面图片不能超过 ${MAX_COVER / (1024 * 1024)} MB` : `歌词文件不能超过 ${MAX_LYRICS / 1024} KB`;
+        let fieldBytes = 0;
         stream.on('data', chunk => {
+          fieldBytes += chunk.length;
           totalBytes += chunk.length;
+          // 按字段分别提前拦截，避免超大封面/歌词也写满临时盘。
+          if (fieldBytes > limit) { fail(Object.assign(new Error(limitError), { status: 413 })); return; }
           if (totalBytes > MAX_UPLOAD + MAX_COVER + MAX_LYRICS) fail(Object.assign(new Error('上传内容过大'), { status: 413 }));
         });
-        stream.on('limit', () => fail(Object.assign(new Error('单次上传上限为 60 MB'), { status: 413 })));
-        const write = pipeline(stream, fs.createWriteStream(target, { mode: 0o600 }))
+        stream.on('limit', () => fail(Object.assign(new Error(limitError), { status: 413 })));
+        const sink = fs.createWriteStream(target, { mode: 0o600 });
+        sinks.add(sink);
+        sink.on('close', () => sinks.delete(sink));
+        const write = pipeline(stream, sink)
           .then(() => fsp.stat(target))
           .then(stat => { files[name] = { filename: original, path: target, size: stat.size }; })
           .catch(fail);
